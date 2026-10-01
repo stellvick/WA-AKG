@@ -4,17 +4,18 @@ services:
   db:
     image: mysql:8.0
     restart: always
+    command: --default-authentication-plugin=mysql_native_password --performance-schema=OFF --innodb-buffer-pool-size=64M
     environment:
       MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-wa_akg_root_pass}
       MYSQL_DATABASE: ${MYSQL_DATABASE:-wa_akg}
     healthcheck:
-      test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -u root -p$${MYSQL_ROOT_PASSWORD:-wa_akg_root_pass} || exit 1"]
+      test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "--silent"]
       interval: 10s
       timeout: 5s
       retries: 5
       start_period: 30s
     volumes:
-      - mysql_data:/var/lib/mysql
+      - mysql_data_v2:/var/lib/mysql
 
   app:
     build:
@@ -49,6 +50,6 @@ services:
       - uploads_data:/app/uploads
 
 volumes:
-  mysql_data:
+  mysql_data_v2:
   app_data:
   uploads_data:

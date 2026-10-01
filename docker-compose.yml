@@ -3,31 +3,28 @@ version: '3.8'
 services:
   db:
     image: mysql:8.0
-    container_name: wa-akg-db
     restart: always
     environment:
-      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-wa_akg_root_pass}
       MYSQL_DATABASE: ${MYSQL_DATABASE:-wa_akg}
-    ports:
-      - "3306:3306"
-    volumes:
-      - mysql_data:/var/lib/mysql
     healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -u root -p$${MYSQL_ROOT_PASSWORD:-wa_akg_root_pass} || exit 1"]
       interval: 10s
       timeout: 5s
       retries: 5
+      start_period: 30s
+    volumes:
+      - mysql_data:/var/lib/mysql
 
   app:
     build:
       context: .
       dockerfile: Dockerfile
-    container_name: wa-akg-app
     restart: always
     ports:
       - "3000:3000"
     environment:
-      - DATABASE_URL=mysql://root:${MYSQL_ROOT_PASSWORD}@db:3306/${MYSQL_DATABASE:-wa_akg}
+      - DATABASE_URL=mysql://root:${MYSQL_ROOT_PASSWORD:-wa_akg_root_pass}@db:3306/${MYSQL_DATABASE:-wa_akg}
       - AUTH_SECRET=${AUTH_SECRET}
       - BASE_URL=${BASE_URL:-http://localhost:3000}
       - NEXTAUTH_URL=${NEXTAUTH_URL:-http://localhost:3000}
@@ -38,12 +35,12 @@ services:
       - NEXT_PUBLIC_API_URL=${BASE_URL:-http://localhost:3000}/api
       - BAILEYS_LOG_LEVEL=${BAILEYS_LOG_LEVEL:-error}
       - NEXT_PUBLIC_SWAGGER_USERNAME=${NEXT_PUBLIC_SWAGGER_USERNAME:-admin}
-      - NEXT_PUBLIC_SWAGGER_PASSWORD=${NEXT_PUBLIC_SWAGGER_PASSWORD}
+      - NEXT_PUBLIC_SWAGGER_PASSWORD=${NEXT_PUBLIC_SWAGGER_PASSWORD:-admin123}
       - NEXT_PUBLIC_SWAGGER_ENABLED=${NEXT_PUBLIC_SWAGGER_ENABLED:-true}
       - TZ=${TZ:-Asia/Jakarta}
       - LOCALE=${LOCALE:-id-ID}
-      - ADMIN_EMAIL=${ADMIN_EMAIL}
-      - ADMIN_PASSWORD=${ADMIN_PASSWORD}
+      - ADMIN_EMAIL=${ADMIN_EMAIL:-admin@example.com}
+      - ADMIN_PASSWORD=${ADMIN_PASSWORD:-admin123}
     depends_on:
       db:
         condition: service_healthy

@@ -19,7 +19,6 @@ ts_errors*.log
 test-*.ts
 test-*.js
 fix_test.js
-*.patch
 
 # Environment
 .env

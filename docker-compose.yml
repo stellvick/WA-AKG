@@ -1,39 +1,43 @@
-version: '3.8'
+# Coolify-ready Compose for WA-AKG (WhatsApp Gateway & Dashboard).
+# Deploy as a Git Application with build pack = "Docker Compose" (chosen at creation).
+# Rules applied: no `version:`, no published `ports:` (Coolify's proxy routes the
+# domain; a host port bypasses it and blocks rolling updates), `${VAR}` secrets become
+# editable Coolify variables, a healthcheck on every long-running service, named
+# volumes only. Set the domain in Coolify -> Configuration -> Domains for `app`, e.g.
+# https://wa-akg.example.com:3000 (3000 is the CONTAINER port, not a host publish).
 
 services:
   db:
     image: mysql:8.0
-    restart: always
+    restart: unless-stopped
     command: --default-authentication-plugin=mysql_native_password --performance-schema=OFF --innodb-buffer-pool-size=64M
     environment:
-      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-wa_akg_root_pass}
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:?MySQL root password is required}
       MYSQL_DATABASE: ${MYSQL_DATABASE:-wa_akg}
     healthcheck:
       test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "--silent"]
       interval: 10s
       timeout: 5s
-      retries: 5
+      retries: 10
       start_period: 30s
     volumes:
-      - mysql_data_v2:/var/lib/mysql
+      - mysql_data:/var/lib/mysql
 
   app:
     build:
       context: .
       dockerfile: Dockerfile
-    restart: always
-    ports:
-      - "3000:3000"
+    restart: unless-stopped
     environment:
-      - DATABASE_URL=mysql://root:${MYSQL_ROOT_PASSWORD:-wa_akg_root_pass}@db:3306/${MYSQL_DATABASE:-wa_akg}
-      - AUTH_SECRET=${AUTH_SECRET}
-      - BASE_URL=${BASE_URL:-http://localhost:3000}
-      - NEXTAUTH_URL=${NEXTAUTH_URL:-http://localhost:3000}
+      - DATABASE_URL=mysql://root:${MYSQL_ROOT_PASSWORD}@db:3306/${MYSQL_DATABASE:-wa_akg}
+      - AUTH_SECRET=${AUTH_SECRET:?AUTH_SECRET is required - generate with: openssl rand -base64 32}
+      - BASE_URL=${SERVICE_URL_APP_3000:-http://localhost:3000}
+      - NEXTAUTH_URL=${SERVICE_URL_APP_3000:-http://localhost:3000}
       - NODE_ENV=production
-      - PORT=${PORT:-3000}
+      - PORT=3000
       - HOSTNAME=0.0.0.0
-      - NEXT_PUBLIC_APP_URL=${BASE_URL:-http://localhost:3000}
-      - NEXT_PUBLIC_API_URL=${BASE_URL:-http://localhost:3000}/api
+      - NEXT_PUBLIC_APP_URL=${SERVICE_URL_APP_3000:-http://localhost:3000}
+      - NEXT_PUBLIC_API_URL=${SERVICE_URL_APP_3000:-http://localhost:3000}/api
       - BAILEYS_LOG_LEVEL=${BAILEYS_LOG_LEVEL:-error}
       - NEXT_PUBLIC_SWAGGER_USERNAME=${NEXT_PUBLIC_SWAGGER_USERNAME:-admin}
       - NEXT_PUBLIC_SWAGGER_PASSWORD=${NEXT_PUBLIC_SWAGGER_PASSWORD:-admin123}
@@ -48,8 +52,14 @@ services:
     volumes:
       - app_data:/app/data
       - uploads_data:/app/uploads
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:3000/"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+      start_period: 90s
 
 volumes:
-  mysql_data_v2:
+  mysql_data:
   app_data:
   uploads_data:
